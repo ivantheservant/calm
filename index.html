@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<!--
+  ──────────────────────────────────────────────────────────────────────
+  CALM CORNER  ·  a quiet, press-play practice space
+  ──────────────────────────────────────────────────────────────────────
+  HOW TO CUSTOMISE (you only ever touch two places):
+
+  1) CONFIG  (in the <script> below, marked  ★ EDIT HERE ★)
+       • her name, greeting, footer text
+       • which activities are on/off  (set  enabled: true / false)
+       • the order they appear  (the  order: [...]  array)
+       • every word she sees, every prompt, every colour list, timings
+       • "Today's little things" task list (bunny / sun / walk / etc.)
+       → Adding, removing or editing an activity = edit CONFIG only.
+         You never need to touch the engine below it.
+
+  2) :root  (in the <style> below, marked  ★ THEME ★)
+       • colours, fonts, sizes, animation speed
+
+  No data is ever stored. No accounts. No tracking. Works offline once loaded.
+  English-facing (for her). FND / dissociation-aware by design.
+  ──────────────────────────────────────────────────────────────────────
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#eef2f7" />
+<title>Calm Corner</title>
+<style>
+  /* ★ THEME ★  ── edit colours / sizes / speed here ────────────────── */
+  :root{
+    --bg-1:#eef2f7; --bg-2:#e3eef0; --bg-3:#eaf3ec;     /* page background wash */
+    --card:#ffffff;
+    --ink-strong:#334155;   /* headings */
+    --ink:#475569;          /* body */
+    --ink-soft:#94a3b8;     /* secondary */
+    --ink-faint:#cbd5e1;    /* hints */
+    --line:#eef1f5;         /* card borders */
+    --chip:#f1f5f9;         /* neutral chip bg */
+    --accent:#475569;       /* primary "Done" button */
+    --safe:#10b981;         /* finished / reassurance */
+    --radius:22px;
+    --speed:300ms;          /* tap micro-interaction speed */
+    --font: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  /* ── engine styles (rarely need editing) ─────────────────────────── */
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:var(--font);
+    background:linear-gradient(160deg,var(--bg-1) 0%,var(--bg-2) 58%,var(--bg-3) 100%);
+    color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    padding:16px;min-height:100%;
+  }
+  #app{
+    width:100%;max-width:400px;background:var(--card);
+    border-radius:30px;box-shadow:0 24px 60px -20px rgba(51,65,85,.28);
+    overflow:hidden;min-height:640px;display:flex;flex-direction:column;
+  }
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+  .fade{animation:fade var(--speed) ease both;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  /* top bar */
+  .bar{display:flex;align-items:center;gap:12px;padding:20px 20px 0;}
+  .iconbtn{width:42px;height:42px;border-radius:50%;background:var(--chip);
+    display:flex;align-items:center;justify-content:center;color:var(--ink-soft);
+    transition:transform var(--speed);}
+  .iconbtn:active{transform:scale(.92);}
+  .bar-title{font-size:13px;font-weight:600;letter-spacing:.04em;color:var(--ink-soft);}
+
+  .pane{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:28px 28px 34px;text-align:center;}
+  svg{display:block;}
+  .ic{width:100%;height:100%;}
+
+  /* home */
+  .home{flex:1;display:flex;flex-direction:column;padding:34px 26px 26px;}
+  .eyebrow{display:flex;align-items:center;gap:7px;color:var(--safe);
+    font-size:13px;font-weight:600;letter-spacing:.04em;margin-bottom:8px;}
+  .eyebrow .dot{width:16px;height:16px;}
+  h1.greet{font-size:27px;line-height:1.25;font-weight:600;color:var(--ink-strong);margin:0 0 6px;}
+  .sub{font-size:15px;color:var(--ink-soft);line-height:1.5;margin:0 0 18px;}
+
+  .anchor{display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+    padding:16px 18px;border-radius:var(--radius);margin-bottom:16px;
+    background:linear-gradient(135deg,#e6f4ef,#eef5f1);border:1px solid #dcede6;
+    transition:transform var(--speed);}
+  .anchor:active{transform:scale(.985);}
+  .anchor.start{background:linear-gradient(135deg,#e1eefb,#eaf2fb);border-color:#d4e5f7;}
+  .anchor.start .chip{background:#38bdf822;color:#0ea5e9;}
+  .picklabel{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-faint);text-align:center;margin:16px 0 11px;}
+  .anchor .chip{width:46px;height:46px;border-radius:14px;background:#10b98122;color:#10b981;
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .anchor .chip svg{width:24px;height:24px;}
+  .anchor b{display:block;font-size:17px;font-weight:600;color:var(--ink-strong);}
+  .anchor span{font-size:13px;color:var(--ink-soft);}
+
+  .list{display:flex;flex-direction:column;gap:11px;margin-top:2px;}
+  .row{display:flex;align-items:center;gap:15px;width:100%;text-align:left;
+    padding:15px 16px;border-radius:var(--radius);background:var(--card);
+    border:1px solid var(--line);box-shadow:0 6px 16px -12px rgba(51,65,85,.3);
+    transition:transform var(--speed);}
+  .row:active{transform:scale(.98);}
+  .row .chip{width:46px;height:46px;border-radius:14px;display:flex;align-items:center;
+    justify-content:center;flex:0 0 auto;}
+  .row .chip svg{width:23px;height:23px;}
+  .row b{display:block;font-size:17px;font-weight:500;color:var(--ink-strong);}
+  .row span{font-size:13px;color:var(--ink-soft);}
+  .foot{font-size:12px;color:var(--ink-faint);text-align:center;margin-top:auto;padding-top:22px;}
+
+  /* generic prompt text */
+  .big{font-size:28px;font-weight:300;color:var(--ink-strong);line-height:1.3;max-width:18rem;}
+  .lead{font-size:18px;color:var(--ink);max-width:17rem;line-height:1.45;}
+  .hint{font-size:14px;color:var(--ink-soft);max-width:17rem;line-height:1.5;}
+  .count{font-size:64px;font-weight:300;color:var(--ink-strong);line-height:1;}
+
+  /* dots */
+  .dots{display:flex;gap:7px;}
+  .dots i{width:8px;height:8px;border-radius:50%;background:var(--ink-faint);transition:background var(--speed);}
+
+  /* big circular tap target */
+  .tap{width:176px;height:176px;border-radius:50%;color:#fff;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:8px;box-shadow:0 18px 40px -16px rgba(51,65,85,.5);
+    transition:transform var(--speed);}
+  .tap:active{transform:scale(.95);}
+  .tap svg{width:40px;height:40px;}
+  .tap small{font-size:15px;font-weight:300;}
+
+  /* pill buttons */
+  .btn{padding:15px 44px;border-radius:999px;font-size:17px;color:#fff;background:var(--accent);
+    transition:transform var(--speed);}
+  .btn:active{transform:scale(.96);}
+  .btn-soft{padding:12px 32px;border-radius:999px;font-size:15px;background:var(--chip);color:var(--ink);}
+  .btn-ghost{font-size:14px;color:var(--ink-soft);padding:8px;}
+  .stack{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;}
+  .gap{display:flex;flex-direction:column;align-items:center;gap:26px;width:100%;}
+
+  /* breathing */
+  .breath-wrap{height:212px;display:flex;align-items:center;justify-content:center;}
+  .breath{width:188px;height:188px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle at 36% 30%,#bfe3f0 0%,#9bd0e6 55%,#74bcdc 100%);
+    box-shadow:0 0 60px rgba(116,188,220,.4);transform:scale(.62);}
+  .breath i{display:block;width:108px;height:108px;border-radius:50%;background:rgba(255,255,255,.4);}
+
+  /* finished */
+  .badge{width:78px;height:78px;border-radius:50%;background:#10b9811f;color:var(--safe);
+    display:flex;align-items:center;justify-content:center;}
+  .badge svg{width:38px;height:38px;}
+
+  /* task list */
+  .tasks{display:flex;flex-direction:column;gap:12px;width:100%;}
+  .task{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:15px 16px;
+    border-radius:18px;background:var(--card);border:1px solid var(--line);transition:transform var(--speed);}
+  .task:active{transform:scale(.98);}
+  .task .emoji{font-size:22px;width:30px;text-align:center;}
+  .task b{font-size:16px;font-weight:400;color:var(--ink);flex:1;}
+  .task .box{width:26px;height:26px;border-radius:8px;border:2px solid var(--ink-faint);
+    display:flex;align-items:center;justify-content:center;color:#fff;flex:0 0 auto;}
+  .task.done .box{background:var(--safe);border-color:var(--safe);}
+  .task.done .box svg{width:15px;height:15px;}
+  .task.done b{color:var(--ink-soft);}
+
+  /* name-it (kept, disabled by default) */
+  .wordgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;width:100%;}
+  .word{padding:15px 6px;border-radius:16px;background:#fdf2f4;color:#e7607c;font-size:15px;
+    border:1px solid #fbe2e8;transition:transform var(--speed);}
+  .word:active{transform:scale(.95);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════
+   ★ EDIT HERE ★   — everything customisable lives in this CONFIG object.
+   Change words, colours, on/off, order, timings. Nothing below needs edits.
+   ════════════════════════════════════════════════════════════════════ */
+const CONFIG = {
+
+  // Fill these in later when you have her preferences. Leave "" for now.
+  personalization: {
+    name: "",            // e.g. "Mia" → greeting becomes "Hi, Mia."
+    favouriteColours: [] // optional: hex list to feed Colour hunt, e.g. ["#60a5fa","#34d399"]
+  },
+
+  home: {
+    eyebrow: "a calm corner",
+    line: "Let’s take a small moment.",
+    sub: "Eyes open. Go gently — there’s no wrong way to do this.",
+    pickLabel: "or pick one",
+    footer: "Best done with Dad nearby."
+  },
+
+  // The "no choosing needed" path. One tap runs a short, FIXED sequence,
+  // one activity after another — good as her daily / after-waking ritual.
+  // To change the routine, just edit the `flow` list (ids from `activities`).
+  dailyMoment: {
+    enabled: true,
+    title: "Start here",
+    sub: "a gentle moment, step by step — no choosing",
+    flow: ["grounding", "breathe", "tasks"],
+    finished: "That’s your moment for today. Nicely done."
+  },
+
+  // The big reassurance button. Sends her straight to a short, distinct reset.
+  bringMeBack: {
+    enabled: true,
+    title: "Bring me back",
+    sub: "a quick reset when things feel far away",
+    target: "quickground"      // id of the activity to jump to (a short, distinct reset)
+  },
+
+  // Order shown on the home screen. Only items with enabled:true appear.
+  order: ["grounding", "colour", "countdown", "look", "breathe", "tasks", "name"],
+
+  activities: {
+
+    grounding: {
+      enabled: true,
+      type: "sensory",
+      title: "5 · 4 · 3 · 2 · 1",
+      blurb: "come back to right now",
+      icon: "target", color: "#10b981",
+      finished: "You found your way back to right now.",
+      senses: [
+        { label: "things you can see",   count: 5, icon: "eye",    prompt: "Look around. Tap each thing you notice.",        color: "#0ea5e9" },
+        { label: "sounds you can hear",  count: 4, icon: "ear",    prompt: "Listen for a moment. Tap each sound.",            color: "#10b981" },
+        { label: "things you can touch", count: 3, icon: "hand",   prompt: "Reach out. Tap each texture you feel.",           color: "#8b5cf6" },
+        { label: "things you can smell", count: 2, icon: "leaf",   prompt: "Breathe in. Tap a smell — or anything close by.",  color: "#f59e0b" },
+        { label: "thing you can taste",  count: 1, icon: "cup",    prompt: "One taste — or one thing that feels safe.",        color: "#f43f5e" }
+      ]
+    },
+
+    // Reached only via the "Bring me back" button (NOT listed on the home screen,
+    // because it is not in the `order` array). A short ~30-second reset for harder
+    // moments — kept deliberately distinct from the full 5-4-3-2-1 practice above.
+    quickground: {
+      enabled: true,
+      type: "sensory",
+      title: "Quick reset",
+      blurb: "a short way back",
+      icon: "target", color: "#10b981",
+      finished: "You’re back. Take it slow.",
+      senses: [
+        { label: "things you can see",  count: 3, icon: "eye",  prompt: "Look around. Tap 3 things you can see.",                 color: "#0ea5e9" },
+        { label: "sounds you can hear", count: 2, icon: "ear",  prompt: "Tap 2 sounds you can hear.",                              color: "#10b981" },
+        { label: "feet on the floor",   count: 1, icon: "hand", prompt: "Press your feet into the floor. Tap when you feel them.", color: "#8b5cf6" }
+      ]
+    },
+
+    colour: {
+      enabled: true,
+      type: "colourHunt",
+      title: "Colour hunt",
+      blurb: "find colours around you",
+      icon: "circle", color: "#f59e0b",
+      target: 3,
+      finished: "Nicely noticed. The world’s still here — and so are you.",
+      colours: [
+        { name: "blue",   hex: "#60a5fa" },
+        { name: "green",  hex: "#34d399" },
+        { name: "yellow", hex: "#fbbf24" },
+        { name: "red",    hex: "#fb7185" },
+        { name: "white",  hex: "#f1f5f9" },
+        { name: "brown",  hex: "#b08968" },
+        { name: "purple", hex: "#a78bfa" }
+      ]
+    },
+
+    countdown: {
+      enabled: true,
+      type: "countdown",
+      title: "Count down",
+      blurb: "a steady way to refocus",
+      icon: "minus", color: "#6366f1",
+      start: 100, step: 7,
+      intro: "Let’s count down from 100, taking away 7 each time. Say each number softly.",
+      finished: "Nicely done. Your mind came back to the room."
+    },
+
+    look: {
+      enabled: true,
+      type: "sequence",
+      title: "Look closely",
+      blurb: "notice one small thing",
+      icon: "search", color: "#8b5cf6",
+      finished: "You stayed with one small thing. That’s the whole practice.",
+      steps: [
+        "Pick one small object near you.",
+        "What colour is it?",
+        "What shape is it?",
+        "Is it smooth, or rough?",
+        "Is it warm, or cool?",
+        "Is it heavy, or light?",
+        "Say one true thing about it — out loud."
+      ]
+    },
+
+    breathe: {
+      enabled: true,
+      type: "breathing",
+      title: "Breathe",
+      blurb: "slow it down — eyes open",
+      icon: "ring", color: "#38bdf8",
+      note: "Keep your eyes open and rest them on the circle.",
+      finished: "Nice and slow. You can come back to this any time.",
+      pattern: [
+        { name: "Breathe in",  sub: "slowly, through your nose", ms: 4000, scale: 1.0 },
+        { name: "Hold",        sub: "gently",                    ms: 2000, scale: 1.0 },
+        { name: "Breathe out", sub: "slow and long",             ms: 6000, scale: 0.55 }
+      ]
+    },
+
+    tasks: {
+      enabled: true,
+      type: "taskList",
+      title: "Today’s little things",
+      blurb: "small, kind things — no pressure",
+      icon: "leaf2", color: "#22c55e",
+      note: "Do any you feel like. Skipping is completely fine.",
+      doneText: "Done for now",
+      finished: "Lovely. Even one small thing counts.",
+      items: [
+        { emoji: "🐰", label: "Give the bunny a cuddle / fresh food" },
+        { emoji: "☀️", label: "Step outside in the sun for a minute" },
+        { emoji: "🚶", label: "A short, gentle walk" },
+        { emoji: "🌱", label: "Notice one good thing today" }
+      ]
+    },
+
+    // Kept here, switched OFF. To turn on: set enabled:true.
+    // Note: every choice gives the SAME gentle reply — no analysis, no storing.
+    name: {
+      enabled: false,
+      type: "nameIt",
+      title: "Name it",
+      blurb: "just say what’s here",
+      icon: "heart", color: "#fb7185",
+      prompt: "What’s here right now? Just name it.",
+      words: ["Okay", "Calm", "Tired", "Anxious", "Sad", "Angry", "Overwhelmed", "Numb", "Not sure"],
+      reply: "Thank you for noticing. Naming it is enough.",
+      replySub: "Nothing here is saved. You can close this whenever you like.",
+      privacyNote: "Nothing here is saved."
+    }
+  }
+};
+
+/* ════════════════════════════════════════════════════════════════════
+   ENGINE  — reads CONFIG and renders. You rarely need to touch this.
+   ════════════════════════════════════════════════════════════════════ */
+
+const ICONS = {
+  back:  svg('<path d="M15 5l-7 7 7 7"/>'),
+  target:svg('<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="11"/>'),
+  anchor:svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/>'),
+  eye:   svg('<path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/>'),
+  ear:   svg('<path d="M7 9a5 5 0 0 1 10 0c0 3-2.5 3.5-3.5 5S12 21 10 21a3 3 0 0 1-3-3"/><path d="M10.5 9a1.5 1.5 0 0 1 3 .3"/>'),
+  hand:  svg('<path d="M8 13V6a1.5 1.5 0 0 1 3 0v5m0-1V5a1.5 1.5 0 0 1 3 0v6m0-1.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-5.2-3l-1.6-3a1.5 1.5 0 0 1 2.6-1.5L8 14"/>'),
+  leaf:  svg('<path d="M5 19c0-8 6-13 14-13 0 8-6 13-14 13z"/><path d="M5 19c4-1 7-3 9-6"/>'),
+  leaf2: svg('<path d="M5 19c0-8 6-13 14-13 0 8-6 13-14 13z"/><path d="M5 19c4-1 7-3 9-6"/>'),
+  cup:   svg('<path d="M5 8h12v4a5 5 0 0 1-5 5H10a5 5 0 0 1-5-5z"/><path d="M17 9h2a2 2 0 0 1 0 4h-2"/><path d="M7 4v2M10 4v2M13 4v2"/>'),
+  circle:svg('<circle cx="12" cy="12" r="8"/>'),
+  ring:  svg('<circle cx="12" cy="12" r="8.5"/>'),
+  minus: svg('<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>'),
+  search:svg('<circle cx="11" cy="11" r="6"/><path d="M15.5 15.5L20 20"/>'),
+  heart: svg('<path d="M12 20s-7-4.6-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.4-7 10-7 10z"/>'),
+  check: svg('<path d="M5 12.5l4.2 4.2L19 7"/>'),
+  play:  svg('<path d="M8 5.5v13l10-6.5z" fill="currentColor" stroke="none"/>'),
+  pause: svg('<path d="M9 5v14M15 5v14"/>'),
+  refresh:svg('<path d="M20 11a8 8 0 0 0-14-4.5M4 13a8 8 0 0 0 14 4.5"/><path d="M18 3v4h-4M6 21v-4h4"/>')
+};
+function svg(inner){
+  return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" '
+       + 'stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
+}
+
+const app = document.getElementById('app');
+let timers = [];                       // anything that must be cleared on navigation
+const state = { view: 'home', id: null, a: {}, flow: null };
+
+function clearTimers(){ timers.forEach(t => clearTimeout(t)); timers = []; }
+function go(view){ clearTimers(); state.view = view; draw(); }
+
+function openActivity(id){
+  const def = CONFIG.activities[id];
+  if(!def) return;
+  state.id = id;
+  state.a = resetScratch(def);
+  go('activity');
+}
+function home(){ state.flow = null; state.id = null; go('home'); }
+function finish(){ if(state.flow) return advanceFlow(); state.a = { _finished: true }; go('finished'); }
+
+/* ---- daily "Start here" flow: runs a fixed sequence, one activity at a time ---- */
+function startDailyMoment(){
+  const dm = CONFIG.dailyMoment;
+  if(!dm || !dm.flow || !dm.flow.length) return;
+  state.flow = { ids: dm.flow.slice(), idx: 0 };
+  openFlowStep();
+}
+function openFlowStep(){
+  const id = state.flow.ids[state.flow.idx];
+  const def = CONFIG.activities[id];
+  if(!def) return advanceFlow();        // skip any unknown/disabled id safely
+  state.id = id;
+  state.a = resetScratch(def);
+  go('activity');
+}
+function advanceFlow(){
+  state.flow.idx++;
+  if(state.flow.idx < state.flow.ids.length) openFlowStep();
+  else { state.flow = null; go('flowdone'); }
+}
+
+function resetScratch(def){
+  switch(def.type){
+    case 'sensory':    return { si:0, tapped:0, locked:false };
+    case 'sequence':   return { i:0 };
+    case 'colourHunt': return { ci: pickColourIndex(def), count:0 };
+    case 'countdown':  return { current: def.start, started:false };
+    case 'breathing':  return { running:false, pi:0 };
+    case 'taskList':   return { done:{} };
+    case 'nameIt':     return { picked:null };
+    default:           return {};
+  }
+}
+function pickColourIndex(def){
+  const list = (CONFIG.personalization.favouriteColours && CONFIG.personalization.favouriteColours.length)
+    ? def.colours : def.colours;          // favourites can be wired in later if desired
+  return Math.floor(Math.random() * def.colours.length);
+}
+
+/* ---------- top-level draw ---------- */
+function draw(){
+  if(state.view === 'home')      app.innerHTML = renderHome();
+  else if(state.view === 'finished') app.innerHTML = renderFinished();
+  else if(state.view === 'flowdone') app.innerHTML = renderFlowDone();
+  else                            app.innerHTML = renderActivity();
+  bind();
+}
+
+/* ---------- HOME ---------- */
+function renderHome(){
+  const p = CONFIG.personalization, h = CONFIG.home;
+  const greet = p.name ? ('Hi, ' + p.name + '.') : 'Hi.';
+  const start = (CONFIG.dailyMoment && CONFIG.dailyMoment.enabled) ? `
+    <button class="anchor start" data-flow>
+      <span class="chip">${ICONS.play}</span>
+      <span><b>${CONFIG.dailyMoment.title}</b><span>${CONFIG.dailyMoment.sub}</span></span>
+    </button>` : '';
+  const bmb = CONFIG.bringMeBack.enabled ? `
+    <button class="anchor" data-open="${CONFIG.bringMeBack.target}">
+      <span class="chip">${ICONS.anchor}</span>
+      <span><b>${CONFIG.bringMeBack.title}</b><span>${CONFIG.bringMeBack.sub}</span></span>
+    </button>` : '';
+  const rows = CONFIG.order
+    .filter(id => CONFIG.activities[id] && CONFIG.activities[id].enabled)
+    .map(id => {
+      const d = CONFIG.activities[id];
+      return `
+        <button class="row" data-open="${id}">
+          <span class="chip" style="background:${d.color}1f;color:${d.color}">${ICONS[d.icon] || ICONS.circle}</span>
+          <span><b>${d.title}</b><span>${d.blurb}</span></span>
+        </button>`;
+    }).join('');
+  const picklabel = rows ? `<div class="picklabel">${h.pickLabel || 'or pick one'}</div>` : '';
+  return `
+    <div class="home fade">
+      <div class="eyebrow"><span class="dot">${ICONS.leaf}</span>${h.eyebrow}</div>
+      <h1 class="greet">${greet}<br>${h.line}</h1>
+      <p class="sub">${h.sub}</p>
+      ${start}
+      ${bmb}
+      ${picklabel}
+      <div class="list">${rows}</div>
+      <p class="foot">${h.footer}</p>
+    </div>`;
+}
+
+/* ---------- FLOW DONE (end of the Start here sequence) ---------- */
+function renderFlowDone(){
+  const dm = CONFIG.dailyMoment;
+  return `
+    <div class="pane fade">
+      <div class="gap">
+        <div class="badge">${ICONS.check}</div>
+        <p class="big" style="font-weight:300">${dm.finished}</p>
+        <button class="btn" data-home>Done</button>
+      </div>
+    </div>`;
+}
+
+/* ---------- ACTIVITY dispatch ---------- */
+function renderActivity(){
+  const d = CONFIG.activities[state.id];
+  const inner = ({
+    sensory: renderSensory, sequence: renderSequence, colourHunt: renderColour,
+    countdown: renderCountdown, breathing: renderBreathing, taskList: renderTasks,
+    nameIt: renderNameIt
+  }[d.type] || (()=>'' ))(d);
+  return shell(d.title, inner);
+}
+function shell(title, inner){
+  return `
+    <div class="bar"><button class="iconbtn" data-home aria-label="Back">${ICONS.back}</button>
+      <span class="bar-title">${title}</span></div>
+    <div class="pane fade">${inner}</div>`;
+}
+
+/* ---------- FINISHED ---------- */
+function renderFinished(){
+  const d = state.id ? CONFIG.activities[state.id] : null;
+  const text = (d && d.finished) || 'Nicely done.';
+  return `
+    <div class="pane fade">
+      <div class="gap">
+        <div class="badge">${ICONS.check}</div>
+        <p class="big" style="font-weight:300">${text}</p>
+        <button class="btn" data-home>Done</button>
+      </div>
+    </div>`;
+}
+
+/* ---------- SENSORY (5-4-3-2-1) ---------- */
+function renderSensory(d){
+  const a = state.a, s = d.senses[a.si];
+  const dots = d.senses.map((_,k)=>`<i style="background:${k<a.si?'#94a3b8':k===a.si?s.color:'var(--ink-faint)'}"></i>`).join('');
+  return `
+    <div class="gap">
+      <div class="dots">${dots}</div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+        <span class="count">${s.count - a.tapped}</span>
+        <span class="lead">${s.label}</span>
+      </div>
+      <p class="hint">${s.prompt}</p>
+      <button class="tap" data-tap style="background:${s.color}">
+        ${ICONS[s.icon] || ICONS.target}<small>tap when you notice one</small>
+      </button>
+    </div>`;
+}
+
+/* ---------- SEQUENCE (Look closely) ---------- */
+function renderSequence(d){
+  const a = state.a;
+  const dots = d.steps.map((_,k)=>`<i style="background:${k<=a.i?d.color:'var(--ink-faint)'}"></i>`).join('');
+  const last = a.i === d.steps.length - 1;
+  return `
+    <div class="gap">
+      <div class="dots">${dots}</div>
+      <p class="big">${d.steps[a.i]}</p>
+      <button class="btn" data-next style="background:${d.color}">${last ? 'Done' : 'Next'}</button>
+    </div>`;
+}
+
+/* ---------- COLOUR HUNT ---------- */
+function renderColour(d){
+  const a = state.a, c = d.colours[a.ci], reached = a.count >= d.target;
+  const pips = Array.from({length:d.target}).map((_,k)=>
+    `<i style="width:14px;height:14px;background:${k<a.count?c.hex:'var(--ink-faint)'}"></i>`).join('');
+  const action = reached ? `
+      <div class="stack">
+        <p class="lead">Nicely noticed.</p>
+        <button class="btn-soft" data-newcolour>Find another colour</button>
+        <button class="btn" data-finish>I’m done</button>
+      </div>` : `
+      <button class="btn" data-found style="background:${c.hex}">I found one</button>`;
+  return `
+    <div class="gap">
+      <p class="lead">Find ${d.target} things that are</p>
+      <div style="width:112px;height:112px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+        background:${c.hex};box-shadow:0 0 40px ${c.hex}66;border:1px solid var(--line)">
+        <span style="font-size:22px;font-weight:600;color:#1e293b;opacity:.75;text-transform:capitalize">${c.name}</span>
+      </div>
+      <div class="dots">${pips}</div>
+      ${action}
+    </div>`;
+}
+
+/* ---------- COUNTDOWN (100 − 7) ---------- */
+function renderCountdown(d){
+  const a = state.a;
+  if(!a.started){
+    return `
+      <div class="gap">
+        <p class="lead">${d.intro}</p>
+        <button class="btn" data-cdstart style="background:${d.color}">Start at ${d.start}</button>
+      </div>`;
+  }
+  const nextVal = a.current - d.step;
+  const ending = nextVal < 0;
+  return `
+    <div class="gap">
+      <span class="count">${a.current}</span>
+      <p class="hint">take away ${d.step}…</p>
+      <div class="stack">
+        ${ ending
+            ? `<button class="btn" data-finish style="background:${d.color}">Done</button>`
+            : `<button class="btn" data-cdnext style="background:${d.color}">${nextVal}</button>` }
+        <button class="btn-ghost" data-finish>I’m done</button>
+      </div>
+    </div>`;
+}
+
+/* ---------- BREATHING (eyes-open, external focus) ---------- */
+function renderBreathing(d){
+  return `
+    <div class="gap">
+      <div class="breath-wrap"><div class="breath" id="breath"><i></i></div></div>
+      <div style="height:60px">
+        <p class="big" id="breath-label" style="font-weight:300">Ready when you are</p>
+        <p class="hint" id="breath-sub">${d.note}</p>
+      </div>
+      <button class="tap" id="breath-btn" data-breath style="width:64px;height:64px;background:${d.color}">
+        ${ICONS.play}
+      </button>
+      <button class="btn-ghost" data-finish>Finish</button>
+    </div>`;
+}
+
+/* ---------- TASK LIST (no streaks, nothing saved) ---------- */
+function renderTasks(d){
+  const a = state.a;
+  const items = d.items.map((it,k)=>`
+    <button class="task ${a.done[k]?'done':''}" data-task="${k}">
+      <span class="emoji">${it.emoji}</span><b>${it.label}</b>
+      <span class="box">${ICONS.check}</span>
+    </button>`).join('');
+  return `
+    <div class="gap" style="gap:18px">
+      <p class="hint">${d.note}</p>
+      <div class="tasks">${items}</div>
+      <button class="btn" data-finish style="background:${d.color}">${d.doneText}</button>
+    </div>`;
+}
+
+/* ---------- NAME IT (disabled by default; identical neutral reply) ---------- */
+function renderNameIt(d){
+  const a = state.a;
+  if(!a.picked){
+    const grid = d.words.map(w=>`<button class="word" data-word="${w}">${w}</button>`).join('');
+    return `
+      <div class="gap" style="gap:22px">
+        <p class="big" style="font-size:24px">${d.prompt}</p>
+        <div class="wordgrid">${grid}</div>
+        <p class="hint">${d.privacyNote}</p>
+      </div>`;
+  }
+  return `
+    <div class="gap">
+      <div class="badge" style="background:#fb71851f;color:#fb7185">${ICONS.heart}</div>
+      <p class="big" style="font-weight:300">${d.reply}</p>
+      <p class="hint">${d.replySub}</p>
+      <button class="btn" data-home>Done</button>
+    </div>`;
+}
+
+/* ---------- event binding (re-attached each draw) ---------- */
+function bind(){
+  q('[data-home]', b => b.onclick = home);
+  q('[data-finish]', b => b.onclick = finish);
+  q('[data-flow]', b => b.onclick = startDailyMoment);
+  q('[data-open]', b => b.onclick = () => openActivity(b.dataset.open));
+
+  // sensory
+  q('[data-tap]', b => b.onclick = () => {
+    const a = state.a, s = CONFIG.activities[state.id].senses[a.si];
+    if(a.locked) return;
+    a.tapped++;
+    if(a.tapped >= s.count){
+      a.locked = true; draw();
+      timers.push(setTimeout(() => {
+        a.si++; a.tapped = 0; a.locked = false;
+        (a.si >= CONFIG.activities[state.id].senses.length) ? finish() : draw();
+      }, 750));
+    } else draw();
+  });
+
+  // sequence
+  q('[data-next]', b => b.onclick = () => {
+    const a = state.a, d = CONFIG.activities[state.id];
+    (a.i >= d.steps.length - 1) ? finish() : (a.i++, draw());
+  });
+
+  // colour hunt
+  q('[data-found]', b => b.onclick = () => {
+    const a = state.a, d = CONFIG.activities[state.id];
+    a.count = Math.min(d.target, a.count + 1); draw();
+  });
+  q('[data-newcolour]', b => b.onclick = () => {
+    const a = state.a, d = CONFIG.activities[state.id];
+    let n = a.ci; while(n === a.ci && d.colours.length > 1) n = Math.floor(Math.random()*d.colours.length);
+    a.ci = n; a.count = 0; draw();
+  });
+
+  // countdown
+  q('[data-cdstart]', b => b.onclick = () => { state.a.started = true; draw(); });
+  q('[data-cdnext]', b => b.onclick = () => {
+    const a = state.a, d = CONFIG.activities[state.id];
+    a.current -= d.step;
+    if(a.current < 0) finish(); else draw();
+  });
+
+  // tasks
+  q('[data-task]', b => b.onclick = () => {
+    const k = b.dataset.task; state.a.done[k] = !state.a.done[k]; draw();
+  });
+
+  // name it
+  q('[data-word]', b => b.onclick = () => { state.a.picked = b.dataset.word; draw(); });
+
+  // breathing
+  const bb = document.querySelector('[data-breath]');
+  if(bb) bb.onclick = toggleBreath;
+}
+function q(sel, fn){ document.querySelectorAll(sel).forEach(fn); }
+
+/* ---------- breathing controller (direct DOM, smooth) ---------- */
+function toggleBreath(){
+  const a = state.a;
+  a.running = !a.running;
+  const btn = document.getElementById('breath-btn');
+  if(a.running){ btn.innerHTML = ICONS.pause; stepBreath(); }
+  else { btn.innerHTML = ICONS.play; clearTimers(); }
+}
+function stepBreath(){
+  const d = CONFIG.activities[state.id], a = state.a;
+  const circle = document.getElementById('breath');
+  const label  = document.getElementById('breath-label');
+  const sub    = document.getElementById('breath-sub');
+  if(!circle) return;
+  const ph = d.pattern[a.pi];
+  label.textContent = ph.name; sub.textContent = ph.sub;
+  circle.style.transition = 'transform ' + ph.ms + 'ms ease-in-out';
+  circle.style.transform = 'scale(' + ph.scale + ')';
+  timers.push(setTimeout(() => {
+    a.pi = (a.pi + 1) % d.pattern.length;
+    if(a.running) stepBreath();
+  }, ph.ms));
+}
+
+/* ---------- start ---------- */
+draw();
+</script>
+</body>
+</html>
