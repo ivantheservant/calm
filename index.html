@@ -168,15 +168,26 @@ h1.greet{font-size:25px;line-height:1.25;font-weight:700;color:var(--ink-strong)
 .task.done b{color:var(--ink-soft);}
 
 /* ── mood entry ── */
-.mood-scale{display:flex;gap:5px;align-items:center;justify-content:center;flex-wrap:wrap;
-  width:100%;margin:4px 0;}
-.ms-btn{width:40px;height:40px;border-radius:50%;font-size:13px;font-weight:600;
-  background:var(--chip);color:var(--ink-soft);border:2px solid transparent;
-  transition:all var(--speed);flex:0 0 auto;}
-.ms-btn:active{transform:scale(.92);}
-.ms-btn.sel{color:#fff;border-color:transparent;transform:scale(1.12);}
-.mood-label{display:flex;justify-content:space-between;width:100%;
-  font-size:11px;color:var(--ink-faint);padding:0 4px;}
+/* big readout */
+.mood-readout{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.mood-readout .num{width:74px;height:74px;border-radius:26px;display:flex;align-items:center;
+  justify-content:center;font-size:30px;font-weight:700;color:#fff;
+  transition:all var(--speed);box-shadow:0 12px 26px -8px rgba(45,27,78,.4);}
+.mood-readout .num.empty{background:var(--chip);color:var(--ink-faint);font-size:24px;box-shadow:none;}
+.mood-readout .cap{font-size:11px;color:var(--ink-soft);letter-spacing:.05em;}
+/* number-line scale */
+.mood-scale{position:relative;display:flex;align-items:center;width:100%;padding:4px 0;}
+.ms-track{position:absolute;left:8px;right:8px;top:50%;height:7px;border-radius:99px;
+  transform:translateY(-50%);opacity:.6;
+  background:linear-gradient(90deg,#fda4af 0%,#fbbf24 32%,#cbd5e1 50%,#6ee7b7 70%,#10b981 100%);}
+.ms-btn{position:relative;flex:1;height:48px;display:flex;align-items:center;justify-content:center;
+  background:transparent;border:none;z-index:1;}
+.ms-btn:active .ms-dot{transform:scale(.86);}
+.ms-dot{width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:9.5px;font-weight:700;background:#fff;color:var(--ink-soft);
+  border:2px solid var(--line);transition:all var(--speed);}
+.ms-dot.sel{width:36px;height:36px;font-size:13px;color:#fff;border-color:#fff;
+  box-shadow:0 6px 18px -3px rgba(45,27,78,.45);}
 .mood-note{width:100%;border:1.5px solid var(--line);border-radius:14px;
   padding:11px 14px;font-family:var(--font);font-size:14px;color:var(--ink);
   background:var(--chip);resize:none;outline:none;min-height:72px;
@@ -203,7 +214,8 @@ canvas#chart{display:block;width:100%;height:180px;}
 .entry-meta{font-size:12px;color:var(--ink-soft);}
 .entry-note{font-size:13px;color:var(--ink);margin-top:1px;}
 .export-row{display:flex;gap:8px;width:100%;}
-.export-row .btn-soft{flex:1;text-align:center;}
+.export-row .btn-soft{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;}
+.export-row svg{width:18px;height:18px;flex:0 0 auto;}
 </style>
 </head>
 <body><div id="app"></div>
@@ -370,6 +382,19 @@ const I={
 function s(inner){return '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
 
 /* ════════════════════════════════════════════════════════════
+   HELPERS — escaping for safe display and valid .ics output
+   ════════════════════════════════════════════════════════════ */
+function esc(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function icsEsc(t){return String(t).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n');}
+function scoreColor(n){
+  if(n>=3)return '#10b981';
+  if(n>=1)return '#34d399';
+  if(n===0)return '#94a3b8';
+  if(n>=-2)return '#f59e0b';
+  return '#fb7185';
+}
+
+/* ════════════════════════════════════════════════════════════
    MOOD STORAGE  (localStorage)
    ════════════════════════════════════════════════════════════ */
 const STORE_KEY='cc_mood';
@@ -396,7 +421,7 @@ function exportICS(){
       'UID:cc-'+m.ts+'@calmcorner',
       'DTSTART:'+fmt(m.ts),'DTEND:'+fmt(m.ts+300000),
       'SUMMARY:Mood '+label,
-      m.note?'DESCRIPTION:'+m.note.replace(/\n/g,'\\n'):'DESCRIPTION:',
+      'DESCRIPTION:'+(m.note?icsEsc(m.note):''),
       'END:VEVENT');
   });
   lines.push('END:VCALENDAR');
@@ -660,19 +685,22 @@ function rTasks(d){
 function rMoodEntry(){
   const a=ST.a;
   const scale=[-5,-4,-3,-2,-1,0,1,2,3,4,5];
-  const scoreColor=n=>n>2?'#10b981':n>0?'#34d399':n===0?'#94a3b8':n>-3?'#f59e0b':'#f43f5e';
-  const btns=scale.map(n=>{
-    const lbl=n>0?'+'+n:String(n);
-    const sel=a.score===n;
-    return`<button class="ms-btn ${sel?'sel':''}" data-score="${n}"
-      style="${sel?'background:'+scoreColor(n)+';transform:scale(1.14)':''}">${lbl}</button>`;
+  const sel=a.score;
+  const readout = sel===null
+    ? `<div class="num empty">–</div>`
+    : `<div class="num" style="background:${scoreColor(sel)}">${sel>0?'+'+sel:sel}</div>`;
+  const dots=scale.map(n=>{
+    const isSel=sel===n,lbl=n>0?'+'+n:String(n);
+    return`<button class="ms-btn" data-score="${n}">
+      <span class="ms-dot ${isSel?'sel':''}" style="${isSel?'background:'+scoreColor(n)+';border-color:'+scoreColor(n):''}">${lbl}</span>
+    </button>`;
   }).join('');
-  const canSubmit=a.score!==null;
-  return`<div class="gap" style="gap:16px">
+  const canSubmit=sel!==null;
+  return`<div class="gap" style="gap:18px">
     <p class="lead" style="font-size:15px">How are you feeling right now?</p>
-    <div class="mood-scale">${btns}</div>
-    <div class="mood-label"><span>really low</span><span>okay</span><span>really good</span></div>
-    <textarea class="mood-note" id="mood-note" placeholder="Anything you want to add? (totally optional 🌸)" rows="3">${a.note||''}</textarea>
+    <div class="mood-readout">${readout}<span class="cap">${sel===null?'tap a number below':'right now'}</span></div>
+    <div class="mood-scale"><div class="ms-track"></div>${dots}</div>
+    <textarea class="mood-note" id="mood-note" placeholder="Anything you want to add? (totally optional 🌸)" rows="3">${esc(a.note||'')}</textarea>
     <div class="mood-row">
       <button class="btn" data-moodsubmit style="background:${canSubmit?'#f59e0b':'#d1d5db'};${canSubmit?'':'cursor:default'}">
         ${canSubmit?'Save 💛':'Pick a number first'}
@@ -729,13 +757,13 @@ function renderHistory(){
   const rows=entries.length?[...entries].reverse().map(m=>{
     const d=new Date(m.ts);
     const lbl=m.score>0?'+'+m.score:String(m.score);
-    const col=m.score>2?'#10b981':m.score>0?'#34d399':m.score===0?'#94a3b8':m.score>-3?'#f59e0b':'#f43f5e';
+    const col=scoreColor(m.score);
     const time=d.toLocaleDateString('en-NZ',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-NZ',{hour:'2-digit',minute:'2-digit'});
     return`<div class="entry-row">
       <div class="entry-score" style="background:${col}">${lbl}</div>
       <div style="flex:1;min-width:0">
         <div class="entry-meta">${time}</div>
-        ${m.note?`<div class="entry-note">${m.note}</div>`:''}
+        ${m.note?`<div class="entry-note">${esc(m.note)}</div>`:''}
       </div>
     </div>`;
   }).join(''):`<p class="hint" style="text-align:center;padding:20px 0">No records yet 🌸</p>`;
@@ -782,7 +810,7 @@ function drawChart(seg){
   [-5,-4,-3,-2,-1,0,1,2,3,4,5].forEach(v=>{
     const y=pad.t+iH*(1-(v+5)/10);
     ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+iW,y);ctx.stroke();
-    if(v%5===0||v===0){ctx.fillStyle='#9b8cb0';ctx.font='10px '+CONFIG&&"ui-rounded,system-ui,sans-serif";
+    if(v%5===0||v===0){ctx.fillStyle='#9b8cb0';ctx.font='10px ui-rounded,system-ui,sans-serif';
       ctx.fillText(v>0?'+'+v:String(v),2,y+3);}
   });
   if(!entries.length)return;
@@ -805,7 +833,7 @@ function drawChart(seg){
   ctx.stroke();
   // dots
   pts.forEach(m=>{
-    const col=m.score>2?'#10b981':m.score>0?'#34d399':m.score===0?'#94a3b8':m.score>-3?'#f59e0b':'#f43f5e';
+    const col=scoreColor(m.score);
     ctx.beginPath();ctx.arc(tx(m.ts),ty(m.score),4,0,Math.PI*2);
     ctx.fillStyle=col;ctx.fill();
     ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
